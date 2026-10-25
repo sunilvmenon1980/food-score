@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Food Score</title>
+<meta name="theme-color" content="#1f5f4f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Food Score">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+/* Layout: one narrow column like the back of a pack; the score sits in a bold box, nutrients as UK front-of-pack traffic-light chips. */
+:root {
+  --bg: #f6f7f3;
+  --surface: #ffffff;
+  --ink: #161a17;
+  --muted: #5d6660;
+  --line: #d9ddd6;
+  --accent: #1f5f4f;
+  --accent-ink: #ffffff;
+  --red: #c4202f;
+  --red-soft: #fbe4e4;
+  --amber: #d98a00;
+  --amber-soft: #fdf0d6;
+  --green: #2f8a43;
+  --green-soft: #e1f2e3;
+  --red-text: #9e1724;
+  --amber-text: #7a4d00;
+  --green-text: #1e6430;
+  --font-display: "Arial Black", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1311; --surface: #181d1a; --ink: #e8ece9; --muted: #9aa49e; --line: #2c3430;
+    --accent: #5fbfa6; --accent-ink: #08201a;
+    --red: #e5484d; --red-soft: #3a1618; --amber: #f0a431; --amber-soft: #3a2a0c; --green: #4cb061; --green-soft: #15301b;
+    --red-text: #ff8a8f; --amber-text: #f5c06a; --green-text: #86d896;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: calc(20px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+}
+img { max-width: 100%; }
+main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1, h2, .score-num, .band { font-family: var(--font-display); }
+h1 { font-size: 1.9rem; font-weight: 900; line-height: 1; margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: 0.95rem; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 0.05em; }
+.sub { color: var(--muted); margin: 6px 0 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+button { font: inherit; cursor: pointer; border-radius: 99px; padding: 12px 20px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); min-height: 48px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; flex: 1 1 180px; }
+button:disabled { opacity: 0.5; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.linkish { background: none; border: none; padding: 8px 0; min-height: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; align-self: flex-start; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.85rem; }
+.or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.inline { display: flex; gap: 8px; }
+.inline input { flex: 1; min-width: 0; font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); min-height: 48px; font-variant-numeric: tabular-nums; }
+#reader { width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
+#reader video { width: 100% !important; display: block; }
+
+.slots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.slot { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 128px; border: 2px dashed var(--line); border-radius: var(--radius); padding: 12px; text-align: center; cursor: pointer; color: var(--muted); overflow: hidden; }
+.slot:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+.slot input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.slot strong { color: var(--ink); font-size: 0.95rem; line-height: 1.25; }
+.slot small { font-size: 0.8rem; }
+.slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.slot.filled { border-style: solid; border-color: var(--accent); }
+.slot .tag { position: absolute; left: 6px; bottom: 6px; background: var(--surface); color: var(--ink); font-size: 0.75rem; padding: 2px 8px; border-radius: 99px; pointer-events: none; z-index: 1; }
+.icon { width: 28px; height: 28px; }
+
+.status { display: flex; align-items: center; gap: 12px; color: var(--muted); }
+.spinner { width: 20px; height: 20px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.9s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+.msg { padding: 10px 12px; border-radius: 8px; background: var(--amber-soft); color: var(--amber-text); margin: 0; }
+.msg.ok { background: var(--green-soft); color: var(--green-text); }
+
+.example-tag { align-self: flex-start; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+.head { display: flex; gap: 16px; align-items: center; }
+.score-box { flex: none; width: 104px; height: 104px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; background: var(--muted); }
+.score-box.bad { background: var(--red); }
+.score-box.mid { background: var(--amber); color: #2a1a00; }
+.score-box.good { background: var(--green); }
+.score-num { font-size: 3.2rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.score-of { font-size: 0.8rem; opacity: 0.85; }
+.head-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pname { font-size: 1.1rem; font-weight: 700; overflow-wrap: anywhere; margin: 0; }
+.band { font-size: 1.25rem; font-weight: 900; margin: 0; }
+.meta { color: var(--muted); font-size: 0.85rem; margin: 0; }
+.warns { display: flex; flex-direction: column; gap: 8px; }
+.warn { background: var(--red-soft); color: var(--red-text); border-left: 5px solid var(--red); border-radius: 8px; padding: 10px 12px; margin: 0; font-weight: 700; }
+.lights { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.light { border-radius: 8px 8px 22px 22px; border: 1px solid var(--line); padding: 8px 2px 10px; text-align: center; display: flex; flex-direction: column; gap: 2px; background: var(--surface); min-width: 0; }
+.light .k { font-size: 0.68rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+.light .v { font-size: 0.92rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.light .l { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.light.low { background: var(--green-soft); border-color: var(--green); color: var(--green-text); }
+.light.med { background: var(--amber-soft); border-color: var(--amber); color: var(--amber-text); }
+.light.high { background: var(--red-soft); border-color: var(--red); color: var(--red-text); }
+.why { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.why li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: start; }
+.dot { width: 14px; height: 14px; border-radius: 50%; margin-top: 5px; }
+.dot.bad { background: var(--red); } .dot.mid { background: var(--amber); } .dot.good { background: var(--green); }
+.notes { margin: 0; padding-left: 20px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+
+details { border-top: 1px solid var(--line); padding-top: 12px; }
+summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-top: 10px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 0.85rem; color: var(--muted); }
+.field input, .field select { font: inherit; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-variant-numeric: tabular-nums; min-height: 44px; }
+.checks { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; }
+.checks label { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; }
+.checks input { width: 20px; height: 20px; margin: 2px 0 0; flex: none; accent-color: var(--accent); }
+.fine { color: var(--muted); font-size: 0.82rem; margin: 0; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Food Score</h1>
+    <p class="sub">Scan a barcode or photograph the label. It's rated 1–10 for cholesterol, heart, liver and blood sugar health.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="scan-h">
+    <h2 id="scan-h">Scan a product</h2>
+    <div class="row">
+      <button class="primary" id="scanBtn">Scan barcode</button>
+      <button id="stopScanBtn" hidden>Stop camera</button>
+    </div>
+    <div id="reader" hidden></div>
+    <form class="inline" id="codeForm">
+      <input id="code" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Or type the barcode number" aria-label="Barcode number">
+      <button type="submit">Look up</button>
+    </form>
+
+    <div class="or">or photograph the label</div>
+    <div class="slots">
+      <label class="slot" id="slot1">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        <strong>Nutrition table</strong><small>Flat and well lit</small>
+        <input type="file" id="file1" accept="image/*" aria-label="Photo of the nutrition table">
+      </label>
+      <label class="slot" id="slot2">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        <strong>Ingredients</strong><small>Optional, catches risky ingredients</small>
+        <input type="file" id="file2" accept="image/*" aria-label="Photo of the ingredients list">
+      </label>
+    </div>
+    <button id="readBtn" disabled>Read the photos</button>
+
+    <div class="status" id="status" hidden><span class="spinner" aria-hidden="true"></span><span id="statusText">Working…</span></div>
+    <p class="msg" id="msg" hidden></p>
+    <button class="linkish" id="manualBtn">Type the values instead</button>
+  </section>
+
+  <section class="panel" id="result" aria-live="polite">
+    <span class="example-tag" id="exampleTag">Example · porridge oats</span>
+    <div class="head">
+      <div class="score-box" id="scoreBox"><span class="score-num" id="scoreNum">–</span><span class="score-of">out of 10</span></div>
+      <div class="head-text">
+        <p class="pname" id="pname"></p>
+        <p class="band" id="band"></p>
+        <p class="meta" id="meta"></p>
+      </div>
+    </div>
+    <div class="warns" id="warnings"></div>
+    <div class="lights" id="lights" aria-label="Traffic lights per 100 g"></div>
+    <div>
+      <h2>Why this score</h2>
+      <ul class="why" id="why"></ul>
+    </div>
+    <ul class="notes" id="notes"></ul>
+
+    <details id="editor">
+      <summary>Check or correct the values</summary>
+      <p class="meta" style="margin-top:6px">Per 100 g (or 100 ml for drinks). The score updates as you type.</p>
+      <div class="grid" id="fields"></div>
+      <div class="checks" id="checks"></div>
+    </details>
+  </section>
+
+  <p class="fine">A personal guide, not medical advice. Your own care team's advice on salt and fluids comes first. Check any new supplement with your pharmacist. Product data from Open Food Facts (openfoodfacts.org, ODbL).</p>
+</main>
+
+<script id="scorer">
+// Personal scoring rules. Pure function: same values in, same score out.
+const clamp01 = x => Math.max(0, Math.min(1, x));
+const ramp = (v, lo, hi) => clamp01((v - lo) / (hi - lo));
+const num = v => (v === null || v === undefined || v === "" || !isFinite(Number(v))) ? null : Number(v);
+const fmt = v => v === null ? "?" : (Math.abs(v) < 1 && v !== 0 ? String(Math.round(v * 100) / 100) : String(Math.round(v * 10) / 10));
+
+// UK front-of-pack thresholds: [low max, high min], per 100 g, then per 100 ml
+const FOP = {
+  fat: [[3, 17.5], [1.5, 8.75]],
+  satFat: [[1.5, 5], [0.75, 2.5]],
+  sugars: [[5, 22.5], [2.5, 11.25]],
+  salt: [[0.3, 1.5], [0.3, 0.75]],
+};
+function trafficLight(key, v, drink) {
+  if (v === null) return null;
+  const [lo, hi] = FOP[key][drink ? 1 : 0];
+  return v <= lo ? "low" : v > hi ? "high" : "med";
+}
+
+function scoreProduct(p) {
+  const d = !!p.isDrink, f = p.flags || {};
+  const kcal = num(p.kcal), fat = num(p.fat), sat = num(p.satFat), trans = num(p.trans), carbs = num(p.carbs),
+    sugars = num(p.sugars), fibre = num(p.fibre), protein = num(p.protein), salt = num(p.salt), portion = num(p.portionG);
+  const unit = d ? "100 ml" : "100 g";
+  const reasons = [], warnings = [], notes = [], caps = [];
+  const add = (tone, text, pts) => reasons.push({ tone, text, pts });
+  const lights = {
+    kcal, fat: trafficLight("fat", fat, d), satFat: trafficLight("satFat", sat, d),
+    sugars: trafficLight("sugars", sugars, d), salt: trafficLight("salt", salt, d),
+  };
+  let s = 10;
+
+  // Saturated fat, judged by its share of calories and its amount: the biggest lever on LDL
+  if (sat !== null) {
+    const pctE = kcal > 0 ? sat * 9 / kcal * 100 : (sat > 0 ? 100 : 0);
+    const [lo, hi] = FOP.satFat[d ? 1 : 0];
+    const pen = 6 * ramp(pctE, 7, 30) * ramp(sat, lo / 2, hi);
+    s -= pen;
+    if (pen >= 3) add("bad", `Saturated fat ${fmt(sat)} g per ${unit} (${Math.round(pctE)}% of its calories). This raises your LDL more than anything else you eat.`, -pen);
+    else if (pen > 0.5) add("mid", `Some saturated fat: ${fmt(sat)} g per ${unit} (${Math.round(pctE)}% of its calories).`, -pen);
+    else add("good", "Low in saturated fat.", 0);
+  }
+  if ((trans !== null && trans > 0.2) || f.hydrogenated) { s -= 3; add("bad", "Contains trans or hydrogenated fat: raises LDL and lowers HDL.", -3); }
+  if (f.hardFats) { s -= 1; add("bad", "Made with coconut, palm, butter, ghee or lard. These fats push LDL up.", -1); }
+
+  // Salt: heart and blood pressure
+  if (salt !== null) {
+    const pen = 3.5 * (d ? ramp(salt, 0.15, 0.6) : ramp(salt, 0.3, 1.25));
+    s -= pen;
+    if (pen >= 2) add("bad", `High salt: ${fmt(salt)} g per ${unit}. Keep salt low for your heart and blood pressure.`, -pen);
+    else if (pen > 0.5) add("mid", `Medium salt: ${fmt(salt)} g per ${unit}.`, -pen);
+    else add("good", "Low in salt.", 0);
+    if (portion) {
+      const ps = salt * portion / 100;
+      const pp = ps >= 2.5 ? 3 : ps >= 1.5 ? 1.5 : 0;
+      if (pp) { s -= pp; add("bad", `One ${fmt(portion)} g portion has ${fmt(ps)} g salt: ${Math.round(ps / 6 * 100)}% of a 6 g day.`, -pp); }
+      else if (ps >= 0.6) notes.push(`One ${fmt(portion)} g portion has ${fmt(ps)} g salt (${Math.round(ps / 6 * 100)}% of a 6 g day).`);
+    }
+  }
+
+  // Sugars: triglycerides, fatty liver, HbA1c
+  const src = p.sugarSource || "mixed";
+  if (sugars !== null) {
+    let pen = 3.5 * (d ? ramp(sugars, 2.5, 8) : ramp(sugars, 5, 30));
+    const natural = d ? src === "milk" : (src === "milk" || src === "whole fruit");
+    if (natural) pen /= 2;
+    s -= pen;
+    if (pen >= 2) add("bad", `High sugar: ${fmt(sugars)} g per ${unit}. Sugar raises your triglycerides and feeds fatty liver.`, -pen);
+    else if (pen > 0.5) add("mid", `Some sugar: ${fmt(sugars)} g per ${unit}${natural ? ", mostly natural" : ""}.`, -pen);
+    else add("good", "Low in sugar.", 0);
+    if (d && sugars > 5 && src !== "milk") caps.push([src === "whole fruit" || src === "juice" ? 3 : 2, "Sugary drink: liquid sugar goes straight to your triglycerides and liver."]);
+  }
+
+  // Refined starch with little fibre
+  if (!d && carbs !== null && carbs >= 30 && fibre !== null && fibre < 3) {
+    const pen = 2 + ramp(carbs, 30, 70);
+    s -= pen;
+    add("bad", `Refined starch: ${fmt(carbs)} g carbohydrate with little fibre. Pushes up blood sugar and triglycerides.`, -pen);
+  }
+
+  // Energy density and total fat: weight loss target
+  if (kcal !== null) {
+    const pen = 2.5 * (d ? ramp(kcal, 20, 60) : ramp(kcal, 150, 550));
+    s -= pen;
+    if (pen >= 1.5) add("mid", `Energy-dense: ${Math.round(kcal)} kcal per ${unit}. Keep the portion small while you're losing weight.`, -pen);
+  }
+  if (fat !== null && !f.nutsSeedsOil) {
+    const pen = 1.5 * (d ? ramp(fat, 3, 10) : ramp(fat, 10, 35));
+    s -= pen;
+    if (pen >= 0.75) add("mid", `High in fat: ${fmt(fat)} g per ${unit}.`, -pen);
+  }
+
+  // Bonuses
+  if (!d && fibre !== null && fibre >= 3 && kcal > 0) {
+    const b = 1.5 * ramp(fibre / kcal * 100, 0.75, 2.5);
+    s += b;
+    if (b >= 0.25) add("good", `Good fibre: ${fmt(fibre)} g per ${unit}. Helps lower LDL and blood sugar.`, b);
+  }
+  if (f.wholegrainPulses) { s += 0.5; add("good", "Wholegrain, oats, barley or pulses: their soluble fibre lowers LDL.", 0.5); }
+  if (f.nutsSeedsOil) {
+    s += 0.5; add("good", "Nuts, seeds or plant oil: mostly unsaturated fat, which is good for LDL.", 0.5);
+    if (kcal !== null && kcal > 450) notes.push("Stick to a small handful (about 30 g) or a teaspoon of oil.");
+  }
+  if (!d && protein !== null && protein >= 10) { s += 0.5; add("good", `Good protein: ${fmt(protein)} g per ${unit}. Keeps you full for longer.`, 0.5); }
+
+  // Safety caps from medicines and conditions
+  if (f.saltSubstitute) caps.push([1, "Contains potassium chloride (a salt substitute such as LoSalt). With some heart and blood pressure medicines this can push potassium dangerously high. Avoid."]);
+  if (f.stimulant) caps.push([2, "Energy drink or stimulant (high caffeine, guarana, taurine). Can trigger heart rhythm problems. Avoid."]);
+  if (f.alcohol) caps.push([2, "Contains alcohol: raises triglycerides and strains the liver."]);
+  if (f.bleedingHerbs) caps.push([3, "Contains St John's wort, ginkgo, turmeric/curcumin extract, garlic extract or concentrated fish oil. These can raise bleeding risk with blood thinners. Ask your pharmacist first."]);
+  if (f.grapefruit) caps.push([4, "Contains grapefruit or pomelo, which interacts with some medicines. Check with your pharmacist."]);
+  if (f.liquorice) caps.push([4, "Contains liquorice: can raise blood pressure and cause fluid retention."]);
+  if (d && f.sweeteners && !caps.length) caps.push([7, null]);
+
+  // Notes that don't change the score
+  if (d) notes.push("Counts towards your daily fluid limit, if you have one.");
+  if (d && f.sweeteners) notes.push("Sugar-free is better than sugary. Water is better still.");
+  if (f.soya) notes.push("Contains soya: keep it well away from thyroid tablets (levothyroxine), if you take them.");
+  if (f.addedCalciumIron) notes.push("Contains added calcium or iron: have it at least 4 hours after thyroid tablets, if you take them.");
+  if (f.plantSterols) notes.push("Added plant sterols or stanols: NICE doesn't recommend relying on these to cut heart risk.");
+
+  const missing = [["kcal", kcal], ["saturated fat", sat], ["sugars", sugars], ["salt", salt]].filter(x => x[1] === null).map(x => x[0]);
+  if (missing.length === 4 && !caps.length) return { score: null, raw: null, reasons, warnings, notes, lights, missing };
+  if (p.isSupplement && !caps.length) return { score: null, raw: null, reasons: [], warnings: ["Supplements aren't scored. Check every supplement with your pharmacist first: some interact with blood thinners and thyroid tablets."], notes, lights, missing };
+
+  let score = Math.round(Math.max(1, Math.min(10, s)));
+  for (const [cap, text] of caps) {
+    if (text) warnings.push(text);
+    if (score > cap) score = cap;
+  }
+  if (missing.length) notes.unshift(`Missing: ${missing.join(", ")}. Check the values below; the score may be off.`);
+  return { score, raw: Math.round(s * 10) / 10, reasons, warnings, notes, lights, missing };
+}
+
+function bandFor(score) {
+  if (score === null) return { label: "Not scored", tone: "" };
+  if (score >= 9) return { label: "Great choice", tone: "good" };
+  if (score >= 7) return { label: "Good choice", tone: "good" };
+  if (score >= 5) return { label: "Now and then", tone: "mid" };
+  if (score >= 4) return { label: "Rarely", tone: "mid" };
+  if (score >= 3) return { label: "Rarely", tone: "bad" };
+  return { label: "Avoid", tone: "bad" };
+}
+</script>
+
+<script id="parsers">
+// Turn ingredient text, Open Food Facts records and OCR'd label text into scorer input. No network, no AI.
+const FLAG_KEYS = ["hardFats", "hydrogenated", "saltSubstitute", "stimulant", "alcohol", "bleedingHerbs", "grapefruit",
+  "liquorice", "sweeteners", "wholegrainPulses", "nutsSeedsOil", "soya", "addedCalciumIron", "plantSterols"];
+
+function detectFlags(ingredients, categories = []) {
+  const t = " " + String(ingredients || "").toLowerCase()
+    .replace(/(peanut|nut|almond|cashew|cocoa|shea|hazelnut) butter/g, "$1-spread")
+    .replace(/non[- ]hydrogenated/g, "nonhydro")
+    .replace(/(wine|cider) vinegar/g, "vinegar") + " ";
+  const cats = categories.map(c => String(c).toLowerCase());
+  const has = re => re.test(t);
+  const cat = c => cats.includes(c);
+  const first = t.slice(0, 60);
+  const flags = Object.fromEntries(FLAG_KEYS.map(k => [k, false]));
+  flags.hardFats = has(/coconut (oil|cream|milk|fat)|creamed coconut|palm (kernel )?(oil|fat)|\bpalm\b|\bbutter(?!milk)|\bghee\b|\blard\b|\bsuet\b|dripping/);
+  flags.hydrogenated = has(/hydrogenated/);
+  flags.saltSubstitute = has(/potassium chloride|reduced sodium salt|\blo-?salt\b|\be508\b/);
+  flags.stimulant = cat("en:energy-drinks") || has(/guarana|taurine|high caffeine/);
+  flags.alcohol = cat("en:alcoholic-beverages") || has(/\balcohol\b|\bwine\b|\bbeer\b|\blager\b|\bcider\b|\brum\b|vodka|whisk(e)?y|brandy|liqueur|\bgin\b/);
+  flags.bleedingHerbs = has(/st\.? john'?s wort|hypericum|ginkgo|curcumin|turmeric (root )?extract|garlic (extract|oil)/)
+    || (cat("en:dietary-supplements") && has(/fish oil|krill|omega[- ]?3/));
+  flags.grapefruit = has(/grapefruit|pomelo/);
+  flags.liquorice = has(/liquorice|licorice|glycyrrhiz/);
+  flags.sweeteners = has(/sucralose|aspartame|acesulfame|saccharin|stevia|steviol|cyclamate|\be ?95[0-5]\b|\be ?96[01]\b/);
+  flags.wholegrainPulses = /\boats?\b|oat flakes|oatmeal|wholegrain|whole grain|wholemeal|whole wheat|barley|\brye\b|lentil|chickpea|beans?\b|\bpeas?\b|quinoa|buckwheat|bulgur|millet|ragi/.test(first);
+  flags.nutsSeedsOil = /almond|peanut|cashew|walnut|hazelnut|pecan|pistachio|brazil|macadamia|\bnuts?\b|seeds?\b|olive oil|rapeseed oil|avocado/.test(first);
+  flags.soya = /\bsoya?\b|\bsoy\b|tofu/.test(first);
+  flags.addedCalciumIron = has(/calcium carbonate|calcium phosphate|calcium citrate|\biron\b|ferrous|ferric/);
+  flags.plantSterols = has(/plant (sterol|stanol)|phytosterol|stanol ester|sterol ester/);
+  return flags;
+}
+
+function sugarSourceFrom(ingredients, sugars) {
+  const t = String(ingredients || "").toLowerCase();
+  if (!t.trim()) return sugars !== null && sugars <= 0.5 ? "none" : "mixed";
+  if (/sugar|syrup|dextrose|glucose|fructose|honey|maltodextrin|molasses|nectar|invert/.test(t)) return "added";
+  if (/juice|from concentrate|smoothie/.test(t)) return "juice";
+  if (/milk|yogh?urt|lactose|whey|dairy|kefir/.test(t)) return "milk";
+  if (/fruit|apple|banana|\bdates?\b|raisin|sultana|berr|mango|orange|pear|apricot|fig/.test(t)) return "whole fruit";
+  return sugars !== null && sugars <= 0.5 ? "none" : "mixed";
+}
+
+function fromOFF(prod) {
+  const n = prod.nutriments || {};
+  const g = k => num(n[k + "_100g"]);
+  const cats = prod.categories_tags || [];
+  const ingredients = prod.ingredients_text_en || prod.ingredients_text || "";
+  let kcal = g("energy-kcal");
+  if (kcal === null && g("energy-kj") !== null) kcal = Math.round(g("energy-kj") / 4.184);
+  let salt = g("salt");
+  if (salt === null && g("sodium") !== null) salt = Math.round(g("sodium") * 2.5 * 100) / 100;
+  const qty = String(prod.quantity || "").toLowerCase();
+  const isDrink = cats.includes("en:beverages") || /\d\s*(ml|cl|l)\b/.test(qty);
+  const sugars = g("sugars");
+  const name = String(prod.product_name_en || prod.product_name || String(prod.brands || "").split(",").pop() || "").trim();
+  return {
+    productName: name || "Unnamed product", isDrink, isSupplement: cats.includes("en:dietary-supplements"),
+    kcal, fat: g("fat"), satFat: g("saturated-fat"), trans: g("trans-fat"), carbs: g("carbohydrates"), sugars,
+    fibre: g("fiber"), protein: g("proteins"), salt, portionG: num(prod.serving_quantity),
+    sugarSource: sugarSourceFrom(ingredients, sugars), flags: detectFlags(ingredients, cats),
+    hasIngredients: !!ingredients.trim(),
+  };
+}
+
+// Read numbers from OCR text of a UK/EU nutrition table. Takes the first value on each row (the per 100 g column).
+function parseNutrition(text) {
+  const clean = String(text || "")
+    .replace(/(\d)\s*,\s*(\d)/g, "$1.$2")
+    .replace(/(\d)[oO](?=\s*g)/g, "$10")
+    .replace(/<\s*/g, "")
+    .replace(/\btrace\b/gi, "0");
+  // Tesseract often reads the unit "g" as "9" ("2.5g" -> "2.59"). In a table that uses g units, a unitless value ending in 9 is almost always that.
+  const fixed = (clean.match(/\d\s?g\b/g) || []).length >= 3 ? clean.replace(/(\d)9(?=[\s¢]|$)/gm, "$1g") : clean;
+  const lines = fixed.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const out = { kcal: null, fat: null, satFat: null, trans: null, carbs: null, sugars: null, fibre: null, protein: null, salt: null };
+  const firstNum = s => { const m = s.match(/(\d+(?:\.\d+)?)/); return m ? Number(m[1]) : null; };
+  const after = (line, re) => { const m = line.match(re); return m ? line.slice(m.index + m[0].length) : null; };
+  let sodium = null, kj = null;
+  const all = lines.join("\n");
+  const kc = all.match(/(\d+(?:\.\d+)?)\s*k\s*c\s*a\s*l/i);
+  if (kc) out.kcal = Number(kc[1]);
+  const kjm = all.match(/(\d+(?:\.\d+)?)\s*k\s*j/i);
+  if (kjm) kj = Number(kjm[1]);
+  for (const raw of lines) {
+    const l = raw.toLowerCase();
+    let rest;
+    const set = (key, re, max = 100) => {
+      if (out[key] !== null) return;
+      rest = after(l, re);
+      if (rest === null) return;
+      const v = firstNum(rest);
+      if (v !== null && v <= max) out[key] = v;
+    };
+    if (/saturat/.test(l)) set("satFat", /saturat\w*/);
+    else if (/\btrans\b/.test(l)) set("trans", /\btrans\b[^0-9]*/);
+    else if (/mono|poly/.test(l)) continue;
+    else if (/\bfat\b/.test(l)) set("fat", /\bfat\b/);
+    if (/sugar/.test(l) && !/alcohol/.test(l)) set("sugars", /sugars?/);
+    else if (/carbohydrate/.test(l)) set("carbs", /carbohydrates?/);
+    if (/fib(re|er)/.test(l)) set("fibre", /fib(re|er)/);
+    if (/protein/.test(l)) set("protein", /proteins?/);
+    if (/\bsalt\b/.test(l)) set("salt", /\bsalt\b/);
+    if (/sodium/.test(l) && sodium === null) { rest = after(l, /sodium/); if (rest) sodium = firstNum(rest); }
+  }
+  if (out.kcal === null && kj !== null) out.kcal = Math.round(kj / 4.184);
+  if (out.salt === null && sodium !== null) out.salt = Math.round(sodium * 2.5 * 100) / 100;
+  const isDrink = /100\s*m\s*l/i.test(all);
+  const found = Object.values(out).filter(v => v !== null).length;
+  return { ...out, isDrink, found };
+}
+</script>
+
+<script>
+const FIELDS = [
+  ["kcal", "Energy (kcal)"], ["fat", "Fat (g)"], ["satFat", "Saturates (g)"], ["trans", "Trans fat (g)"],
+  ["carbs", "Carbohydrate (g)"], ["sugars", "Sugars (g)"], ["fibre", "Fibre (g)"], ["protein", "Protein (g)"],
+  ["salt", "Salt (g)"], ["portionG", "Portion size (g or ml)"],
+];
+const FLAG_LABELS = {
+  hardFats: "Coconut, palm oil, butter, ghee or lard",
+  hydrogenated: "Hydrogenated or partially hydrogenated fat",
+  saltSubstitute: "Potassium chloride / salt substitute",
+  stimulant: "Energy drink, guarana or high caffeine",
+  alcohol: "Alcohol",
+  bleedingHerbs: "St John's wort, ginkgo, turmeric, garlic extract or fish-oil concentrate",
+  grapefruit: "Grapefruit or pomelo",
+  liquorice: "Liquorice",
+  sweeteners: "Sweeteners",
+  wholegrainPulses: "Mainly wholegrain, oats, barley or pulses",
+  nutsSeedsOil: "Mainly nuts, seeds or plant oil",
+  soya: "Soya",
+  addedCalciumIron: "Added calcium or iron",
+  plantSterols: "Added plant sterols or stanols",
+};
+const EXAMPLE = {
+  productName: "Porridge oats", isDrink: false, isSupplement: false, sugarSource: "none",
+  kcal: 375, fat: 8, satFat: 1.5, trans: null, carbs: 60, sugars: 1, fibre: 9, protein: 11, salt: 0.01, portionG: 40,
+  flags: { wholegrainPulses: true },
+};
+const blank = () => ({ productName: "Your product", isDrink: false, isSupplement: false, sugarSource: "mixed", flags: {},
+  kcal: null, fat: null, satFat: null, trans: null, carbs: null, sugars: null, fibre: null, protein: null, salt: null, portionG: null });
+
+const $ = id => document.getElementById(id);
+let product = EXAMPLE, isExample = true, source = "";
+const files = [null, null];
+
+function say(t, ok = false) { $("msg").textContent = t || ""; $("msg").hidden = !t; $("msg").classList.toggle("ok", ok); }
+function busy(t) { $("status").hidden = !t; $("statusText").textContent = t || ""; }
+
+function renderScore() {
+  const r = scoreProduct(product), band = bandFor(r.score);
+  $("exampleTag").hidden = !isExample;
+  $("scoreBox").className = "score-box " + band.tone;
+  $("scoreNum").textContent = r.score === null ? "–" : r.score;
+  $("pname").textContent = product.productName || "Your product";
+  $("band").textContent = r.score === null && !product.isSupplement ? "Add values to score" : band.label;
+  $("meta").textContent = (product.isDrink ? "Drink" : "Food") + (source ? " · " + source : "");
+
+  const w = $("warnings"); w.replaceChildren();
+  for (const t of r.warnings) { const p = document.createElement("p"); p.className = "warn"; p.textContent = t; w.append(p); }
+
+  const L = $("lights"); L.replaceChildren();
+  const chips = [["Energy", r.lights.kcal === null ? "?" : Math.round(r.lights.kcal), "", null],
+    ["Fat", fmt(num(product.fat)), "g", r.lights.fat], ["Saturates", fmt(num(product.satFat)), "g", r.lights.satFat],
+    ["Sugars", fmt(num(product.sugars)), "g", r.lights.sugars], ["Salt", fmt(num(product.salt)), "g", r.lights.salt]];
+  for (const [k, v, u, lvl] of chips) {
+    const c = document.createElement("div"); c.className = "light" + (lvl ? " " + lvl : "");
+    const a = document.createElement("span"); a.className = "k"; a.textContent = k;
+    const b = document.createElement("span"); b.className = "v"; b.textContent = v === "?" ? "?" : v + u;
+    const l = document.createElement("span"); l.className = "l"; l.textContent = lvl ? (lvl === "med" ? "Med" : lvl[0].toUpperCase() + lvl.slice(1)) : "kcal";
+    c.append(a, b, l); L.append(c);
+  }
+
+  const why = $("why"); why.replaceChildren();
+  const order = { bad: 0, mid: 1, good: 2 };
+  for (const x of [...r.reasons].sort((a, b) => order[a.tone] - order[b.tone])) {
+    const li = document.createElement("li");
+    const dot = document.createElement("span"); dot.className = "dot " + x.tone;
+    const t = document.createElement("span"); t.textContent = x.text;
+    li.append(dot, t); why.append(li);
+  }
+  if (!r.reasons.length) { const li = document.createElement("li"); li.textContent = "Nothing to score yet."; why.append(li); }
+
+  const n = $("notes"); n.replaceChildren();
+  for (const t of r.notes) { const li = document.createElement("li"); li.textContent = t; n.append(li); }
+  n.hidden = !r.notes.length;
+}
+
+function renderEditor() {
+  const g = $("fields"); g.replaceChildren();
+  const mk = (id, label, el) => { const f = document.createElement("div"); f.className = "field"; const l = document.createElement("label"); l.htmlFor = id; l.textContent = label; f.append(l, el); g.append(f); };
+  const edited = () => { isExample = false; renderScore(); };
+  const name = document.createElement("input"); name.id = "f-name"; name.value = product.productName || "";
+  name.addEventListener("input", () => { product.productName = name.value; edited(); });
+  mk("f-name", "Product", name);
+  const type = document.createElement("select"); type.id = "f-type";
+  for (const [v, t] of [["food", "Food (per 100 g)"], ["drink", "Drink (per 100 ml)"], ["supp", "Supplement"]]) { const o = document.createElement("option"); o.value = v; o.textContent = t; type.append(o); }
+  type.value = product.isSupplement ? "supp" : product.isDrink ? "drink" : "food";
+  type.addEventListener("change", () => { product.isDrink = type.value === "drink"; product.isSupplement = type.value === "supp"; edited(); });
+  mk("f-type", "Type", type);
+  for (const [k, label] of FIELDS) {
+    const i = document.createElement("input"); i.id = "f-" + k; i.type = "number"; i.inputMode = "decimal"; i.step = "any"; i.min = "0";
+    i.value = product[k] ?? ""; i.placeholder = "–";
+    i.addEventListener("input", () => { product[k] = i.value === "" ? null : Number(i.value); edited(); });
+    mk(i.id, label, i);
+  }
+  const sug = document.createElement("select"); sug.id = "f-sugar";
+  for (const [v, t] of [["none", "No sugar"], ["milk", "Mostly from milk"], ["whole fruit", "Mostly whole fruit"], ["juice", "Fruit juice"], ["added", "Added sugar"], ["mixed", "Mixed / not sure"]]) { const o = document.createElement("option"); o.value = v; o.textContent = t; sug.append(o); }
+  sug.value = product.sugarSource || "mixed";
+  sug.addEventListener("change", () => { product.sugarSource = sug.value; edited(); });
+  mk("f-sugar", "Where the sugar comes from", sug);
+
+  const c = $("checks"); c.replaceChildren();
+  const h = document.createElement("p"); h.className = "meta"; h.textContent = "Ingredients that matter for you:"; c.append(h);
+  for (const k of FLAG_KEYS) {
+    const l = document.createElement("label"); const i = document.createElement("input"); i.type = "checkbox"; i.id = "c-" + k;
+    i.checked = !!(product.flags && product.flags[k]);
+    i.addEventListener("change", () => { product.flags = { ...product.flags, [k]: i.checked }; edited(); });
+    const t = document.createElement("span"); t.textContent = FLAG_LABELS[k]; l.append(i, t); c.append(l);
+  }
+}
+
+function show(p, example, src = "") {
+  product = p; isExample = example; source = src;
+  renderScore(); renderEditor();
+  if (!example) $("result").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ---------- Barcode: camera scan + Open Food Facts lookup ----------
+let scanner = null;
+async function stopScan() {
+  if (scanner) { try { await scanner.stop(); } catch {} try { scanner.clear(); } catch {} scanner = null; }
+  $("reader").hidden = true; $("stopScanBtn").hidden = true; $("scanBtn").hidden = false;
+}
+$("stopScanBtn").addEventListener("click", stopScan);
+$("scanBtn").addEventListener("click", async () => {
+  say("");
+  if (!window.Html5Qrcode) { say("The barcode scanner hasn't loaded. Connect to the internet once, or type the barcode number."); return; }
+  $("reader").hidden = false; $("scanBtn").hidden = true; $("stopScanBtn").hidden = false;
+  const F = Html5QrcodeSupportedFormats;
+  scanner = new Html5Qrcode("reader", { formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E], verbose: false });
+  try {
+    await scanner.start({ facingMode: "environment" },
+      { fps: 10, qrbox: (w, h) => ({ width: Math.floor(w * 0.85), height: Math.floor(Math.min(h, w) * 0.45) }), aspectRatio: 1.5,
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true } },
+      async code => { await stopScan(); $("code").value = code; lookup(code); }, () => {});
+  } catch (e) {
+    await stopScan();
+    say("The camera couldn't start. Allow camera access for this site in Settings, or type the barcode number.");
+  }
+});
+$("codeForm").addEventListener("submit", e => { e.preventDefault(); const c = $("code").value.replace(/\D/g, ""); if (c.length >= 8) lookup(c); else say("Type the full barcode number (8 to 14 digits)."); });
+
+async function lookup(code) {
+  say(""); busy("Looking up " + code + "…");
+  const fields = "product_name,product_name_en,brands,quantity,serving_quantity,nutriments,ingredients_text,ingredients_text_en,categories_tags";
+  try {
+    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=${fields}`);
+    if (r.status === 404) throw { notFound: true };
+    if (!r.ok) throw new Error("http " + r.status);
+    const j = await r.json();
+    if (j.status !== 1 || !j.product) throw { notFound: true };
+    const p = fromOFF(j.product);
+    const enough = ["kcal", "satFat", "sugars", "salt"].filter(k => p[k] !== null).length >= 3;
+    show(p, false, "Open Food Facts");
+    if (!enough) { $("editor").open = true; say("Open Food Facts has incomplete nutrition for this product. Photograph the table, or fill in the missing values below."); }
+    else if (!p.hasIngredients) say("No ingredients list on file for this product. Add an ingredients photo to check for risky ingredients.");
+  } catch (e) {
+    if (e && e.notFound) say("This barcode isn't in Open Food Facts yet. Photograph the nutrition table instead.");
+    else say(navigator.onLine === false ? "You're offline. Barcode lookup needs the internet; photograph the label instead." : "The lookup failed. Check your connection, or photograph the label instead.");
+  } finally { busy(""); }
+}
+
+// ---------- Photos: on-device text reading (Tesseract) ----------
+function setSlot(i, file) {
+  files[i] = file;
+  const slot = $("slot" + (i + 1));
+  slot.querySelector("img")?.remove(); slot.querySelector(".tag")?.remove();
+  slot.classList.toggle("filled", !!file);
+  if (file) {
+    const img = document.createElement("img"); img.alt = ""; img.src = URL.createObjectURL(file);
+    const tag = document.createElement("span"); tag.className = "tag"; tag.textContent = "Tap to retake";
+    slot.append(img, tag);
+  }
+  $("readBtn").disabled = !files[0] && !files[1];
+}
+$("file1").addEventListener("change", e => setSlot(0, e.target.files[0] || null));
+$("file2").addEventListener("change", e => setSlot(1, e.target.files[0] || null));
+
+// Greyscale, enlarge small photos, stretch contrast: helps the text reader with shiny packs
+async function prepImage(file) {
+  const bmp = await createImageBitmap(file);
+  const long = Math.max(bmp.width, bmp.height), k = Math.min(2400 / long, Math.max(1, 1600 / long));
+  const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  const ctx = c.getContext("2d"); ctx.drawImage(bmp, 0, 0, c.width, c.height);
+  const im = ctx.getImageData(0, 0, c.width, c.height), d = im.data;
+  let lo = 255, hi = 0;
+  for (let i = 0; i < d.length; i += 4) { const y = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; d[i] = y; if (y < lo) lo = y; if (y > hi) hi = y; }
+  const span = Math.max(1, hi - lo);
+  for (let i = 0; i < d.length; i += 4) { const y = (d[i] - lo) * 255 / span; d[i] = d[i + 1] = d[i + 2] = y; }
+  ctx.putImageData(im, 0, 0);
+  return c;
+}
+
+let ocrWorker = null;
+async function getWorker() {
+  if (ocrWorker) return ocrWorker;
+  if (!window.Tesseract) throw new Error("no-tesseract");
+  ocrWorker = await Tesseract.createWorker("eng", 1, {
+    workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js",
+    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",
+    langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int",
+    logger: m => { if (m.status === "recognizing text") busy(`Reading the text… ${Math.round(m.progress * 100)}%`); else if (m.status) busy("Getting the text reader ready…"); },
+  });
+  return ocrWorker;
+}
+async function ocr(file) {
+  const w = await getWorker();
+  const { data } = await w.recognize(await prepImage(file));
+  return data.text || "";
+}
+
+$("readBtn").addEventListener("click", async () => {
+  say(""); $("readBtn").disabled = true; busy("Getting the text reader ready…");
+  try {
+    const base = product && !isExample && source === "Open Food Facts" ? { ...product } : blank();
+    let note = "";
+    if (files[0]) {
+      const n = parseNutrition(await ocr(files[0]));
+      if (n.found < 3) note = "Couldn't read much of the table. Check the values below against the label, or retake the photo flat and closer.";
+      for (const k of ["kcal", "fat", "satFat", "trans", "carbs", "sugars", "fibre", "protein", "salt"]) if (n[k] !== null) base[k] = n[k];
+      if (n.isDrink) base.isDrink = true;
+    }
+    if (files[1]) {
+      const text = await ocr(files[1]);
+      base.flags = detectFlags(text);
+      base.sugarSource = sugarSourceFrom(text, num(base.sugars));
+    }
+    if (base.productName === "Your product") base.productName = "Scanned label";
+    show(base, false, "read from photo");
+    $("editor").open = true;
+    say(note || "Done. Check the numbers below against the label: photo reading can mix up digits.", !note);
+  } catch (e) {
+    say(String(e && e.message) === "no-tesseract"
+      ? "The text reader hasn't loaded. Connect to the internet and open the app once, then it works offline."
+      : "The photo couldn't be read. Retake it flat, in good light, with the table filling the frame.");
+  } finally { busy(""); $("readBtn").disabled = !files[0] && !files[1]; }
+});
+
+$("manualBtn").addEventListener("click", () => {
+  say(""); show(blank(), false); $("editor").open = true;
+  setTimeout(() => $("f-name").focus(), 300);
+});
+
+show(EXAMPLE, true);
+
+if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
+</body>
+</html>
